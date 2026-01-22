@@ -10,8 +10,11 @@ import {
   FaUsers,
   FaPlus,
   FaEdit,
-  FaTrash
+  FaTrash,
+  FaChevronLeft,
+  FaChevronRight
 } from 'react-icons/fa'
+
 
 const TimeTable = () => {
   const currentTeacher = JSON.parse(localStorage.getItem('currentTeacher') || '{}')
@@ -47,9 +50,17 @@ const TimeTable = () => {
 
   initializeTimetableData()
   const [timetable, setTimetable] = useState(JSON.parse(localStorage.getItem('timetableData') || '{}'))
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 3
   
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+  
+  // Pagination logic
+  const totalPages = Math.ceil(days.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentDays = days.slice(startIndex, endIndex)
   
   // Get today's classes
   const todaysClasses = timetable[today] || []
@@ -61,40 +72,40 @@ const TimeTable = () => {
   // Button handlers
   const handleAddClass = async (day) => {
     const { value: formValues } = await Swal.fire({
-      title: `<div style="color: #4f46e5; font-weight: bold; font-size: 1.3rem;">📚 Add New Class</div>`,
+      title: `<div style="color: #4f46e5; font-weight: bold; font-size: 1.3rem;"><i class="fas fa-plus-circle" style="color: #10b981; margin-right: 8px;"></i>Add New Class</div>`,
       html: `
         <div style="text-align: left; padding: 15px; background: #f8fafc; border-radius: 8px; margin: 5px 0;">
           <div style="display: flex; gap: 10px; margin-bottom: 15px;">
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">🕐 Class Time</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-clock" style="color: #3b82f6; margin-right: 6px;"></i>Class Time</label>
               <input id="time" class="swal2-input" placeholder="09:00-10:00" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">🎓 Class Name</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-users" style="color: #10b981; margin-right: 6px;"></i>Class Name</label>
               <input id="class" class="swal2-input" placeholder="Class 10A" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
           </div>
           
           <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">📖 Subject</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-book" style="color: #f59e0b; margin-right: 6px;"></i>Subject</label>
               <input id="subject" class="swal2-input" placeholder="Subject" value="${currentTeacher.subject || ''}" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">🏫 Room</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-map-marker-alt" style="color: #ef4444; margin-right: 6px;"></i>Room</label>
               <input id="room" class="swal2-input" placeholder="Room 101" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
           </div>
           
           <div style="text-align: center; margin-top: 10px; padding: 8px; background: #dbeafe; border-radius: 6px;">
-            <small style="color: #1e40af; font-weight: 500;">📅 Adding to: <strong>${day}</strong></small>
+            <small style="color: #1e40af; font-weight: 500;"><i class="fas fa-calendar-alt" style="margin-right: 4px;"></i>Adding to: <strong>${day}</strong></small>
           </div>
         </div>
       `,
       width: '500px',
       focusConfirm: false,
-      confirmButtonText: '✅ Add Class',
-      cancelButtonText: '❌ Cancel',
+      confirmButtonText: '<i class="fas fa-check"></i> Add Class',
+      cancelButtonText: '<i class="fas fa-times"></i> Cancel',
       showCancelButton: true,
       confirmButtonColor: '#10b981',
       cancelButtonColor: '#6b7280',
@@ -129,46 +140,46 @@ const TimeTable = () => {
       }
       setTimetable(updatedTimetable)
       localStorage.setItem('timetableData', JSON.stringify(updatedTimetable))
-      toast.success(`🎉 Class added to ${day} successfully!`)
+      toast.success(`<i class="fas fa-party-horn"></i> Class added to ${day} successfully!`)
     }
   }
 
   const handleEditClass = async (day, classItem) => {
     const { value: formValues } = await Swal.fire({
-      title: `<div style="color: #4f46e5; font-weight: bold; font-size: 1.3rem;">✏️ Edit Class</div>`,
+      title: `<div style="color: #4f46e5; font-weight: bold; font-size: 1.3rem;"><i class="fas fa-edit" style="color: #3b82f6; margin-right: 8px;"></i>Edit Class</div>`,
       html: `
         <div style="text-align: left; padding: 15px; background: #f8fafc; border-radius: 8px; margin: 5px 0;">
           <div style="display: flex; gap: 10px; margin-bottom: 15px;">
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">🕐 Class Time</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-clock" style="color: #3b82f6; margin-right: 6px;"></i>Class Time</label>
               <input id="time" class="swal2-input" value="${classItem.time}" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">🎓 Class Name</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-users" style="color: #10b981; margin-right: 6px;"></i>Class Name</label>
               <input id="class" class="swal2-input" value="${classItem.class}" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
           </div>
           
           <div style="display: flex; gap: 10px; margin-bottom: 10px;">
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">📖 Subject</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-book" style="color: #f59e0b; margin-right: 6px;"></i>Subject</label>
               <input id="subject" class="swal2-input" value="${classItem.subject}" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
             <div style="flex: 1;">
-              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;">🏫 Room</label>
+              <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 5px; font-size: 13px;"><i class="fas fa-map-marker-alt" style="color: #ef4444; margin-right: 6px;"></i>Room</label>
               <input id="room" class="swal2-input" value="${classItem.room}" style="margin: 0; border: 1px solid #d1d5db; border-radius: 6px; padding: 8px; font-size: 13px; width: 100%; box-sizing: border-box; height: 35px;">
             </div>
           </div>
           
           <div style="text-align: center; margin-top: 10px; padding: 8px; background: #fef3c7; border-radius: 6px;">
-            <small style="color: #92400e; font-weight: 500;">📅 Editing: <strong>${day}</strong></small>
+            <small style="color: #92400e; font-weight: 500;"><i class="fas fa-calendar-alt" style="margin-right: 4px;"></i>Editing: <strong>${day}</strong></small>
           </div>
         </div>
       `,
       width: '500px',
       focusConfirm: false,
-      confirmButtonText: '✅ Update Class',
-      cancelButtonText: '❌ Cancel',
+      confirmButtonText: '<i class="fas fa-check"></i> Update Class',
+      cancelButtonText: '<i class="fas fa-times"></i> Cancel',
       showCancelButton: true,
       confirmButtonColor: '#3b82f6',
       cancelButtonColor: '#6b7280',
@@ -201,7 +212,7 @@ const TimeTable = () => {
       }
       setTimetable(updatedTimetable)
       localStorage.setItem('timetableData', JSON.stringify(updatedTimetable))
-      toast.success('✨ Class updated successfully!')
+      toast.success('<i class="fas fa-sparkles"></i> Class updated successfully!')
     }
   }
 
@@ -312,50 +323,144 @@ const TimeTable = () => {
         </div>
       )}
 
-      {/* Weekly Timetable */}
+      {/* Weekly Timetable with Chakra UI Table */}
       <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Weekly Schedule</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {days.map((day) => (
-            <div key={day} className={`border rounded-lg p-4 ${day === today ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className={`font-semibold ${day === today ? 'text-blue-700' : 'text-gray-800'}`}>
-                  {day} {day === today && '(Today)'}
-                </h4>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">Weekly Schedule</h3>
+          <div className="relative">
+            <select 
+              onChange={(e) => e.target.value && handleAddClass(e.target.value)}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition cursor-pointer"
+              defaultValue=""
+            >
+              <option value="" disabled>Add Class</option>
+              {days.map(day => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full table-auto">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Room</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {currentDays.map((day) => {
+                const dayClasses = timetable[day] || []
+                if (dayClasses.length === 0) {
+                  return (
+                    <tr key={day} className={day === today ? 'bg-blue-50' : 'bg-white'}>
+                      <td className={`px-6 py-4 whitespace-nowrap ${day === today ? 'font-bold text-blue-600' : 'font-normal text-gray-800'}`}>
+                        {day} {day === today && '(Today)'}
+                      </td>
+                      <td colSpan={5} className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-gray-500 text-sm text-center block">
+                          No classes scheduled
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                }
                 
-              </div>
-              
-              <div className="space-y-2">
-                {timetable[day]?.length > 0 ? (
-                  timetable[day].map((classItem) => (
-                    <div key={classItem.id} className="bg-gray-50 p-3 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <FaClock className="text-xs text-gray-500" />
-                            <span className="text-sm font-medium text-gray-800">{classItem.time}</span>
-                          </div>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <FaChalkboardTeacher className="text-xs text-gray-500" />
-                            <span className="text-sm text-gray-700">CLASS {classItem.class}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <FaMapMarkerAlt className="text-xs text-gray-500" />
-                            <span className="text-xs text-gray-600">ROOM {classItem.room}</span>
-                          </div>
-                        </div>
-                        <div className="flex space-x-1">
-                        
-                        </div>
+                return dayClasses.map((classItem, index) => (
+                  <tr key={classItem.id} className={day === today ? 'bg-blue-50' : 'bg-white'}>
+                    {index === 0 && (
+                      <td 
+                        rowSpan={dayClasses.length} 
+                        className={`px-6 py-4 whitespace-nowrap align-top ${day === today ? 'font-bold text-blue-600' : 'font-normal text-gray-800'}`}
+                      >
+                        {day} {day === today && '(Today)'}
+                      </td>
+                    )}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <FaClock className="mr-2 text-gray-500 text-xs" />
+                        <span className="text-sm font-medium">{classItem.time}</span>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-sm text-center py-4">No classes scheduled</p>
-                )}
-              </div>
-            </div>
-          ))}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {classItem.class}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-900">{classItem.subject}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <FaMapMarkerAlt className="mr-2 text-gray-500 text-xs" />
+                        <span className="text-sm text-gray-900">{classItem.room}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => handleEditClass(day, classItem)}
+                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition"
+                          title="Edit class"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClass(day, classItem)}
+                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition"
+                          title="Delete class"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-gray-700">
+            Showing {startIndex + 1} to {Math.min(endIndex, days.length)} of {days.length} days
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FaChevronLeft className="w-3 h-3" />
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  currentPage === page
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FaChevronRight className="w-3 h-3" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -238,52 +238,70 @@ const StudentAttendance = () => {
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           {selectedClass} - Attendance ({new Date().toLocaleDateString()})
         </h3>
-        <div className="space-y-3">
-          {currentStudents.map((student) => (
-            <div key={student.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-sm transition">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                  <span className="font-semibold text-gray-600">{student.rollNo}</span>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-800">{student.name}</h4>
-                  <p className="text-sm text-gray-600">Roll No: {student.rollNo}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(student.status)}`}>
-                  {student.status}
-                </span>
-                
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full table-auto">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll No</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
                 {editMode && (
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={() => handleStatusChange(student.id, 'Present')}
-                      className={`p-2 rounded ${student.status === 'Present' ? 'bg-green-500 text-white' : 'bg-green-100 text-green-600 hover:bg-green-200'} transition`}
-                      title="Mark Present"
-                    >
-                      <FaCheckCircle className="text-sm" />
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(student.id, 'Absent')}
-                      className={`p-2 rounded ${student.status === 'Absent' ? 'bg-red-500 text-white' : 'bg-red-100 text-red-600 hover:bg-red-200'} transition`}
-                      title="Mark Absent"
-                    >
-                      <FaTimesCircle className="text-sm" />
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(student.id, 'Late')}
-                      className={`p-2 rounded ${student.status === 'Late' ? 'bg-yellow-500 text-white' : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'} transition`}
-                      title="Mark Late"
-                    >
-                      <FaClock className="text-sm" />
-                    </button>
-                  </div>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 )}
-              </div>
-            </div>
-          ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {currentStudents.map((student) => (
+                <tr key={student.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center" title={`Roll Number: ${student.rollNo}`}>
+                      <span className="text-sm font-semibold text-gray-600">{student.rollNo}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900" title={`Student: ${student.name}`}>{student.name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(student.status)}`} title={`Status: ${student.status}`}>
+                      {student.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={`Last updated on ${student.lastUpdated}`}>
+                    {student.lastUpdated}
+                  </td>
+                  {editMode && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => handleStatusChange(student.id, 'Present')}
+                          className={`p-2 rounded ${student.status === 'Present' ? 'bg-green-500 text-white' : 'bg-green-100 text-green-600 hover:bg-green-200'} transition`}
+                          title="Mark as Present"
+                        >
+                          <FaCheckCircle className="text-sm" />
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(student.id, 'Absent')}
+                          className={`p-2 rounded ${student.status === 'Absent' ? 'bg-red-500 text-white' : 'bg-red-100 text-red-600 hover:bg-red-200'} transition`}
+                          title="Mark as Absent"
+                        >
+                          <FaTimesCircle className="text-sm" />
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(student.id, 'Late')}
+                          className={`p-2 rounded ${student.status === 'Late' ? 'bg-yellow-500 text-white' : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'} transition`}
+                          title="Mark as Late"
+                        >
+                          <FaClock className="text-sm" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         
         {currentStudents.length === 0 && (

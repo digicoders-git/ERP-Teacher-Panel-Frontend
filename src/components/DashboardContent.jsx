@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { 
   FaChalkboardTeacher, 
   FaClock, 
@@ -9,7 +10,24 @@ import {
 } from 'react-icons/fa'
 
 const DashboardContent = ({ setActiveTab }) => {
-  const currentTeacher = JSON.parse(localStorage.getItem('currentTeacher') || '{}')
+  const [currentTeacher, setCurrentTeacher] = useState({
+    name: 'Teacher',
+    subject: 'Mathematics', 
+    teacherId: 'T001',
+    classes: ['Class 10A', 'Class 10B', 'Class 9A']
+  })
+
+  useEffect(() => {
+    const teacherData = localStorage.getItem('currentTeacher')
+    if (teacherData) {
+      try {
+        const parsed = JSON.parse(teacherData)
+        setCurrentTeacher(parsed)
+      } catch (error) {
+        console.log('Error parsing teacher data:', error)
+      }
+    }
+  }, [])
 
   const dashboardCards = [
     {

@@ -10,7 +10,10 @@ import {
   FaBook, 
   FaBell,
   FaSignOutAlt,
-  FaUserCircle
+  FaUserCircle,
+  FaExclamationTriangle,
+  FaChartLine,
+  FaPlay
 } from 'react-icons/fa'
 
 const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
@@ -44,17 +47,21 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
     { id: 'assignments', label: 'Assignment', icon: FaTasks },
     { id: 'attendance', label: 'Student Attendance', icon: FaUserCheck },
     { id: 'diary', label: 'E-Diary', icon: FaBook },
-    { id: 'notices', label: 'Notice Update', icon: FaBell }
+    { id: 'notices', label: 'Notice Update', icon: FaBell },
+    { id: 'alerts', label: 'Parent Alerts', icon: FaExclamationTriangle },
+    { id: 'reports', label: 'Reports', icon: FaChartLine },
+    { id: 'elearning', label: 'E-Learning', icon: FaPlay }
   ]
 
   return (
     <div 
-      className={`bg-gray-900 text-white min-h-screen fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 ${
+      className={`bg-gray-900 text-white h-screen fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 overflow-y-auto scrollbar-hide ${
         sidebarExpanded ? 'w-64' : 'w-16'
       }`}
+      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
-      {/* Logo Section */}
-      <div className="p-4 border-b border-gray-700">
+      {/* Logo Section - Fixed */}
+      <div className="p-4 border-b border-gray-700 flex-shrink-0">
         <div className="flex items-center space-x-3">
           <div className="bg-indigo-600 text-white p-2 rounded-lg flex-shrink-0">
             <FaUserCircle className="text-xl" />
@@ -68,8 +75,8 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
         </div>
       </div>
 
-      {/* Menu Items */}
-      <div className="flex-1 p-2">
+      {/* Menu Items - Scrollable */}
+      <div className="flex-1 p-2 overflow-y-auto scrollbar-hide">
         <nav className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon
@@ -96,8 +103,8 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
         </nav>
       </div>
 
-      {/* Logout Button */}
-      <div className="p-2 border-t border-gray-700">
+      {/* Logout Button - Fixed */}
+      <div className="p-2 border-t border-gray-700 flex-shrink-0">
         <button
           onClick={handleLogout}
           className="w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition bg-red-600 text-white hover:bg-red-700 cursor-pointer"
