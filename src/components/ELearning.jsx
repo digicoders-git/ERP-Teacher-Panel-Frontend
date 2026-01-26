@@ -1,163 +1,170 @@
 import { useState } from 'react'
 import { toast } from 'react-toastify'
+import Swal from 'sweetalert2'
 import { FaPlay, FaQuestionCircle, FaBook, FaPlus, FaEye, FaEdit, FaTrash, FaUpload, FaDownload, FaVideo, FaClock, FaUsers, FaCalendarAlt } from 'react-icons/fa'
+import { JitsiMeeting } from '@jitsi/react-sdk'
 
 const ELearning = () => {
   const [activeTab, setActiveTab] = useState('live')
   const [selectedClass, setSelectedClass] = useState('Class 10A')
   const [quickLink, setQuickLink] = useState('')
+  const [jitsiRoom, setJitsiRoom] = useState('')
+  const [showJitsi, setShowJitsi] = useState(false)
 
   const classes = ['Class 10A', 'Class 10B', 'Class 9A']
 
-  // Sample data
-  const videoClasses = [
+  const [videoClasses, setVideoClasses] = useState([
     {
       id: 1,
       title: 'Algebra Basics',
       subject: 'Mathematics',
+      className: 'Class 10A',
       duration: '45 min',
-      thumbnail: 'https://via.placeholder.com/300x200?text=Algebra+Basics',
+      thumbnail: 'https://images.unsplash.com/photo-1509228468518-180dd48a5811?w=400&h=250&fit=crop',
       views: 125,
       uploadDate: '2024-01-15'
     },
     {
       id: 2,
-      title: 'Quadratic Equations',
-      subject: 'Mathematics',
-      duration: '38 min',
-      thumbnail: 'https://via.placeholder.com/300x200?text=Quadratic+Equations',
-      views: 98,
-      uploadDate: '2024-01-12'
-    },
-    {
-      id: 3,
-      title: 'Geometry Fundamentals',
-      subject: 'Mathematics',
-      duration: '52 min',
-      thumbnail: 'https://via.placeholder.com/300x200?text=Geometry+Fundamentals',
-      views: 87,
-      uploadDate: '2024-01-10'
+      title: 'Literature Review',
+      subject: 'English',
+      className: 'Class 10B',
+      duration: '30 min',
+      thumbnail: 'https://images.unsplash.com/photo-1491841573634-28140fc7ced7?w=400&h=250&fit=crop',
+      views: 45,
+      uploadDate: '2024-01-20'
     }
-  ]
+  ])
 
-  const quizzes = [
+  const [quizzes, setQuizzes] = useState([
     {
       id: 1,
       title: 'Algebra Quiz - Chapter 1',
       subject: 'Mathematics',
+      className: 'Class 10A',
       questions: 15,
       duration: '30 min',
       attempts: 45,
       avgScore: 78,
       status: 'Active'
-    },
-    {
-      id: 2,
-      title: 'Geometry Assessment',
-      subject: 'Mathematics',
-      questions: 20,
-      duration: '45 min',
-      attempts: 32,
-      avgScore: 82,
-      status: 'Active'
-    },
-    {
-      id: 3,
-      title: 'Mid-term Practice Test',
-      subject: 'Mathematics',
-      questions: 25,
-      duration: '60 min',
-      attempts: 28,
-      avgScore: 75,
-      status: 'Draft'
     }
-  ]
+  ])
 
-  const resources = [
+  const [resources, setResources] = useState([
     {
       id: 1,
       title: 'Mathematics Formula Sheet',
       type: 'PDF',
+      className: 'Class 10A',
       size: '2.5 MB',
       downloads: 156,
       uploadDate: '2024-01-14'
-    },
-    {
-      id: 2,
-      title: 'Practice Problems Set 1',
-      type: 'PDF',
-      size: '1.8 MB',
-      downloads: 134,
-      uploadDate: '2024-01-12'
-    },
-    {
-      id: 3,
-      title: 'Interactive Graphs Tool',
-      type: 'Link',
-      size: '-',
-      downloads: 89,
-      uploadDate: '2024-01-10'
     }
-  ]
+  ])
 
-  const liveClasses = [
+  const [liveClasses, setLiveClasses] = useState([
     {
       id: 1,
-      title: 'Demo Class - Er Mayank Pandey',
-      subject: 'General',
-      meetingLink: 'https://meet.jit.si/demo-class',
-      scheduledTime: 'Ongoing',
-      duration: 'Open Session',
-      participants: 0,
-      status: 'Active',
-      instructor: 'Er Mayank Pandey',
-      description: 'Join the demo class session'
-    },
-    {
-      id: 2,
-      title: 'Advanced Mathematics',
+      title: 'Algebra Live Session',
       subject: 'Mathematics',
-      meetingLink: 'https://meet.jit.si/math-class-10a',
-      scheduledTime: '2024-01-25 10:00 AM',
+      className: 'Class 10A',
+      meetingLink: 'https://meet.jit.si/algebra-live-10a',
+      scheduledTime: 'Ongoing',
       duration: '45 min',
-      participants: 28,
-      status: 'Scheduled',
+      participants: 12,
+      status: 'Active',
       instructor: 'You',
-      description: 'Calculus and derivatives introduction'
-    },
-    {
-      id: 3,
-      title: 'Physics Lab Session',
-      subject: 'Physics',
-      meetingLink: 'https://meet.jit.si/physics-lab-10a',
-      scheduledTime: '2024-01-25 02:00 PM',
-      duration: '60 min',
-      participants: 25,
-      status: 'Scheduled',
-      instructor: 'You',
-      description: 'Practical experiments on electricity'
+      description: 'Live discussion on Algebra basics'
     }
-  ]
+  ])
 
-  const handleUploadVideo = () => {
-    toast.info('Video upload feature coming soon!')
+  // Modal states
+  const [showModal, setShowModal] = useState({ type: null, data: null }) // type: 'video', 'quiz', 'resource', 'live'
+  const [formData, setFormData] = useState({})
+
+  const handleOpenModal = (type, data = null) => {
+    setShowModal({ type, data })
+    setFormData(data || {})
   }
 
-  const handleCreateQuiz = () => {
-    toast.info('Quiz creation feature coming soon!')
+  const handleCloseModal = () => {
+    setShowModal({ type: null, data: null })
+    setFormData({})
   }
 
-  const handleUploadResource = () => {
-    toast.info('Resource upload feature coming soon!')
+  const handleSave = (e) => {
+    e.preventDefault()
+    const { type, data } = showModal
+    const newItem = {
+      ...formData,
+      id: data ? data.id : Date.now(),
+      className: selectedClass, // Automatically assign the current selected class
+      uploadDate: new Date().toISOString().split('T')[0]
+    }
+
+    if (type === 'video') {
+      if (data) setVideoClasses(v => v.map(item => item.id === data.id ? newItem : item))
+      else setVideoClasses(v => [...v, { ...newItem, views: 0 }])
+      toast.success(data ? 'Video updated!' : 'Video uploaded!')
+    } else if (type === 'quiz') {
+      if (data) setQuizzes(q => q.map(item => item.id === data.id ? newItem : item))
+      else setQuizzes(q => [...q, { ...newItem, attempts: 0, avgScore: 0, status: 'Active' }])
+      toast.success(data ? 'Quiz updated!' : 'Quiz created!')
+    } else if (type === 'resource') {
+      if (data) setResources(r => r.map(item => item.id === data.id ? newItem : item))
+      else setResources(r => [...r, { ...newItem, downloads: 0 }])
+      toast.success(data ? 'Resource updated!' : 'Resource uploaded!')
+    } else if (type === 'live') {
+      if (data) setLiveClasses(l => l.map(item => item.id === data.id ? newItem : item))
+      else setLiveClasses(l => [...l, { ...newItem, participants: 0, status: 'Scheduled', instructor: 'You' }])
+      toast.success(data ? 'Class updated!' : 'Class scheduled!')
+    }
+    handleCloseModal()
+  }
+
+  const handleDelete = (type, id) => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        if (type === 'video') setVideoClasses(v => v.filter(i => i.id !== id))
+        else if (type === 'quiz') setQuizzes(q => q.filter(i => i.id !== id))
+        else if (type === 'resource') setResources(r => r.filter(i => i.id !== id))
+        else if (type === 'live') setLiveClasses(l => l.filter(i => i.id !== id))
+
+        Swal.fire(
+          'Deleted!',
+          'Your item has been deleted.',
+          'success'
+        )
+      }
+    })
   }
 
   const handleJoinClass = (meetingLink) => {
-    window.open(meetingLink, '_blank')
-    toast.success('Opening live class in new window...')
+    // Extract room name from Jitsi URL (e.g., https://meet.jit.si/roomName)
+    try {
+      const url = new URL(meetingLink)
+      const room = url.pathname.replace(/^\//, '')
+      setJitsiRoom(room)
+      setShowJitsi(true)
+      toast.success('Joining Jitsi meeting...')
+    } catch (error) {
+      // If it's not a valid URL, treat it as a room name directly
+      setJitsiRoom(meetingLink)
+      setShowJitsi(true)
+      toast.success('Joining Jitsi meeting...')
+    }
   }
 
   const handleScheduleClass = () => {
-    toast.info('Schedule new class feature coming soon!')
+    handleOpenModal('live')
   }
 
   const renderVideoClasses = () => (
@@ -165,7 +172,7 @@ const ELearning = () => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-800">Video Classes</h3>
         <button
-          onClick={handleUploadVideo}
+          onClick={() => handleOpenModal('video')}
           className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition flex items-center space-x-2"
         >
           <FaUpload />
@@ -174,7 +181,7 @@ const ELearning = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {videoClasses.map((video) => (
+        {videoClasses.filter(v => v.className === selectedClass).map((video) => (
           <div key={video.id} className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition">
             <div className="relative">
               <img src={video.thumbnail} alt={video.title} className="w-full h-48 object-cover" />
@@ -201,10 +208,16 @@ const ELearning = () => {
                 <button className="flex-1 bg-blue-500 text-white py-2 px-3 rounded text-sm hover:bg-blue-600 transition">
                   <FaEye className="inline mr-1" /> View
                 </button>
-                <button className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition">
+                <button
+                  onClick={() => handleOpenModal('video', video)}
+                  className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition"
+                >
                   <FaEdit />
                 </button>
-                <button className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition">
+                <button
+                  onClick={() => handleDelete('video', video.id)}
+                  className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition"
+                >
                   <FaTrash />
                 </button>
               </div>
@@ -220,7 +233,7 @@ const ELearning = () => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-800">Quizzes & Assessments</h3>
         <button
-          onClick={handleCreateQuiz}
+          onClick={() => handleOpenModal('quiz')}
           className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition flex items-center space-x-2"
         >
           <FaPlus />
@@ -229,7 +242,7 @@ const ELearning = () => {
       </div>
 
       <div className="space-y-4">
-        {quizzes.map((quiz) => (
+        {quizzes.filter(q => q.className === selectedClass).map((quiz) => (
           <div key={quiz.id} className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition">
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -261,10 +274,16 @@ const ELearning = () => {
                 <button className="bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600 transition">
                   <FaEye className="inline mr-1" /> View
                 </button>
-                <button className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition">
+                <button
+                  onClick={() => handleOpenModal('quiz', quiz)}
+                  className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition"
+                >
                   <FaEdit />
                 </button>
-                <button className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition">
+                <button
+                  onClick={() => handleDelete('quiz', quiz.id)}
+                  className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition"
+                >
                   <FaTrash />
                 </button>
               </div>
@@ -280,7 +299,7 @@ const ELearning = () => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-800">Learning Resources</h3>
         <button
-          onClick={handleUploadResource}
+          onClick={() => handleOpenModal('resource')}
           className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition flex items-center space-x-2"
         >
           <FaUpload />
@@ -289,7 +308,7 @@ const ELearning = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {resources.map((resource) => (
+        {resources.filter(r => r.className === selectedClass).map((resource) => (
           <div key={resource.id} className="bg-white p-6 rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition">
             <div className="flex items-center space-x-3 mb-4">
               <div className="bg-purple-100 p-3 rounded-lg">
@@ -310,10 +329,16 @@ const ELearning = () => {
               <button className="flex-1 bg-purple-500 text-white py-2 px-3 rounded text-sm hover:bg-purple-600 transition">
                 <FaDownload className="inline mr-1" /> Download
               </button>
-              <button className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition">
+              <button
+                onClick={() => handleOpenModal('resource', resource)}
+                className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition"
+              >
                 <FaEdit />
               </button>
-              <button className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition">
+              <button
+                onClick={() => handleDelete('resource', resource.id)}
+                className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition"
+              >
                 <FaTrash />
               </button>
             </div>
@@ -337,7 +362,7 @@ const ELearning = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {liveClasses.map((liveClass) => (
+        {liveClasses.filter(l => l.className === selectedClass).map((liveClass) => (
           <div key={liveClass.id} className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition">
             <div className={`p-4 ${liveClass.status === 'Active' ? 'bg-gradient-to-r from-red-500 to-pink-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`}>
               <div className="flex items-center justify-between mb-2">
@@ -390,10 +415,16 @@ const ELearning = () => {
                   <FaVideo className="inline mr-1" />
                   {liveClass.status === 'Active' ? 'Join Now' : 'Start Class'}
                 </button>
-                <button className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition">
+                <button
+                  onClick={() => handleOpenModal('live', liveClass)}
+                  className="bg-gray-100 text-gray-600 p-2 rounded hover:bg-gray-200 transition"
+                >
                   <FaEdit />
                 </button>
-                <button className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition">
+                <button
+                  onClick={() => handleDelete('live', liveClass.id)}
+                  className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200 transition"
+                >
                   <FaTrash />
                 </button>
               </div>
@@ -423,6 +454,52 @@ const ELearning = () => {
           </button>
         </div>
       </div>
+
+      {showJitsi && jitsiRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70" id="jitsi-container">
+          <div className="w-full h-full max-w-4xl max-h-[90vh] bg-white rounded-lg overflow-hidden shadow-xl relative">
+            <button
+              onClick={() => setShowJitsi(false)}
+              className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 z-10"
+            >
+              X
+            </button>
+            <JitsiMeeting
+              roomName={jitsiRoom}
+              configOverwrite={{
+                startWithAudioMuted: true,
+                startWithVideoMuted: true,
+                prejoinPageEnabled: false, // Skip the "Ready to join?" screen
+                disableDeepLinking: true, // Prevent mobile app redirect prompts
+                enableEmailInStats: false
+              }}
+              interfaceConfigOverwrite={{
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_WATERMARK_FOR_GUESTS: false,
+                DEFAULT_BACKGROUND: '#1a1a1a',
+                TOOLBAR_BUTTONS: [
+                  'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+                  'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
+                  'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
+                  'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
+                  'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
+                  'security'
+                ],
+              }}
+              userInfo={{
+                displayName: 'Teacher' // Default name to skip name prompt
+              }}
+              onApiReady={(externalApi) => {
+                // You can add event listeners here if needed
+              }}
+              getIFrameRef={(iframeRef) => {
+                iframeRef.style.height = '100%';
+                iframeRef.style.width = '100%';
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -450,7 +527,7 @@ const ELearning = () => {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-800">Total Videos</h3>
-              <p className="text-2xl font-bold text-blue-600">{videoClasses.length}</p>
+              <p className="text-2xl font-bold text-blue-600">{videoClasses.filter(v => v.className === selectedClass).length}</p>
             </div>
           </div>
         </div>
@@ -462,7 +539,7 @@ const ELearning = () => {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-800">Active Quizzes</h3>
-              <p className="text-2xl font-bold text-green-600">{quizzes.filter(q => q.status === 'Active').length}</p>
+              <p className="text-2xl font-bold text-green-600">{quizzes.filter(q => q.status === 'Active' && q.className === selectedClass).length}</p>
             </div>
           </div>
         </div>
@@ -474,7 +551,7 @@ const ELearning = () => {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-800">Resources</h3>
-              <p className="text-2xl font-bold text-purple-600">{resources.length}</p>
+              <p className="text-2xl font-bold text-purple-600">{resources.filter(r => r.className === selectedClass).length}</p>
             </div>
           </div>
         </div>
@@ -486,7 +563,7 @@ const ELearning = () => {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-800">Live Classes</h3>
-              <p className="text-2xl font-bold text-red-600">{liveClasses.filter(c => c.status === 'Active').length}</p>
+              <p className="text-2xl font-bold text-red-600">{liveClasses.filter(c => c.status === 'Active' && c.className === selectedClass).length}</p>
             </div>
           </div>
         </div>
@@ -567,6 +644,166 @@ const ELearning = () => {
 
       {/* Stats */}
 
+      {/* Modal Overlay */}
+      {showModal.type && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className={`p-4 text-white font-bold flex justify-between items-center ${showModal.type === 'video' ? 'bg-blue-600' :
+              showModal.type === 'quiz' ? 'bg-green-600' :
+                showModal.type === 'resource' ? 'bg-purple-600' : 'bg-red-600'
+              }`}>
+              <span>{showModal.data ? 'Edit' : 'Add New'} {showModal.type.charAt(0).toUpperCase() + showModal.type.slice(1)}</span>
+              <button onClick={handleCloseModal} className="hover:text-gray-200 text-2xl">&times;</button>
+            </div>
+
+            <form onSubmit={handleSave} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.title || ''}
+                  onChange={e => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:ring-indigo-500"
+                  placeholder="Enter title"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject / Category</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.subject || ''}
+                  onChange={e => setFormData({ ...formData, subject: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:ring-indigo-500"
+                  placeholder="e.g. Mathematics"
+                />
+              </div>
+
+              {showModal.type === 'video' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                    <input
+                      type="text"
+                      value={formData.duration || ''}
+                      onChange={e => setFormData({ ...formData, duration: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="e.g. 45 min"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL</label>
+                    <input
+                      type="text"
+                      value={formData.thumbnail || ''}
+                      onChange={e => setFormData({ ...formData, thumbnail: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </>
+              )}
+
+              {showModal.type === 'quiz' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Number of Questions</label>
+                    <input
+                      type="number"
+                      value={formData.questions || ''}
+                      onChange={e => setFormData({ ...formData, questions: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Time Limit</label>
+                    <input
+                      type="text"
+                      value={formData.duration || ''}
+                      onChange={e => setFormData({ ...formData, duration: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="e.g. 30 min"
+                    />
+                  </div>
+                </>
+              )}
+
+              {showModal.type === 'resource' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Resource Type</label>
+                    <select
+                      value={formData.type || 'PDF'}
+                      onChange={e => setFormData({ ...formData, type: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="PDF">PDF Document</option>
+                      <option value="Link">External Link</option>
+                      <option value="Video">Video File</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">File Size / Info</label>
+                    <input
+                      type="text"
+                      value={formData.size || ''}
+                      onChange={e => setFormData({ ...formData, size: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="e.g. 2.5 MB"
+                    />
+                  </div>
+                </>
+              )}
+
+              {showModal.type === 'live' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link / Room Name</label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.meetingLink || ''}
+                      onChange={e => setFormData({ ...formData, meetingLink: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="e.g. math-class-101"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Time</label>
+                    <input
+                      type="datetime-local"
+                      value={formData.scheduledTime || ''}
+                      onChange={e => setFormData({ ...formData, scheduledTime: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex space-x-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 px-4 py-2 text-white rounded-lg transition ${showModal.type === 'video' ? 'bg-blue-600 hover:bg-blue-700' :
+                    showModal.type === 'quiz' ? 'bg-green-600 hover:bg-green-700' :
+                      showModal.type === 'resource' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'
+                    }`}
+                >
+                  {showModal.data ? 'Update' : 'Save'} Item
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
