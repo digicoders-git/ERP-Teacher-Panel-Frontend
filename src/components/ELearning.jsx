@@ -1,14 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'react-toastify'
 import Swal from 'sweetalert2'
 import { FaPlay, FaQuestionCircle, FaBook, FaPlus, FaEye, FaEdit, FaTrash, FaUpload, FaDownload, FaVideo, FaClock, FaUsers, FaCalendarAlt } from 'react-icons/fa'
 import { JitsiMeeting } from '@jitsi/react-sdk'
 
-const ELearning = () => {
-  const [activeTab, setActiveTab] = useState('live')
+const ELearning = ({ subTab }) => {
+  const [activeTab, setActiveTab] = useState(subTab || 'live')
+
+  useEffect(() => {
+    if (subTab) {
+      setActiveTab(subTab)
+    }
+  }, [subTab])
+
   const [selectedClass, setSelectedClass] = useState('Class 10A')
   const [quickLink, setQuickLink] = useState('')
   const [jitsiRoom, setJitsiRoom] = useState('')
+  const [jitsiToken, setJitsiToken] = useState('')
   const [showJitsi, setShowJitsi] = useState(false)
 
   const classes = ['Class 10A', 'Class 10B', 'Class 9A']
@@ -148,19 +156,17 @@ const ELearning = () => {
   }
 
   const handleJoinClass = (meetingLink) => {
-    // Extract room name from Jitsi URL (e.g., https://meet.jit.si/roomName)
+    let room = meetingLink;
     try {
       const url = new URL(meetingLink)
-      const room = url.pathname.replace(/^\//, '')
-      setJitsiRoom(room)
-      setShowJitsi(true)
-      toast.success('Joining Jitsi meeting...')
+      room = url.pathname.replace(/^\//, '')
     } catch (error) {
-      // If it's not a valid URL, treat it as a room name directly
-      setJitsiRoom(meetingLink)
-      setShowJitsi(true)
-      toast.success('Joining Jitsi meeting...')
+      // Not a URL, use as is
     }
+
+    const meetingUrl = `https://meet.jit.si/${room}`;
+    window.open(meetingUrl, '_blank');
+    toast.success('Opening meeting in new tab...');
   }
 
   const handleScheduleClass = () => {
@@ -455,51 +461,7 @@ const ELearning = () => {
         </div>
       </div>
 
-      {showJitsi && jitsiRoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70" id="jitsi-container">
-          <div className="w-full h-full max-w-4xl max-h-[90vh] bg-white rounded-lg overflow-hidden shadow-xl relative">
-            <button
-              onClick={() => setShowJitsi(false)}
-              className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 z-10"
-            >
-              X
-            </button>
-            <JitsiMeeting
-              roomName={jitsiRoom}
-              configOverwrite={{
-                startWithAudioMuted: true,
-                startWithVideoMuted: true,
-                prejoinPageEnabled: false, // Skip the "Ready to join?" screen
-                disableDeepLinking: true, // Prevent mobile app redirect prompts
-                enableEmailInStats: false
-              }}
-              interfaceConfigOverwrite={{
-                SHOW_JITSI_WATERMARK: false,
-                SHOW_WATERMARK_FOR_GUESTS: false,
-                DEFAULT_BACKGROUND: '#1a1a1a',
-                TOOLBAR_BUTTONS: [
-                  'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-                  'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-                  'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-                  'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
-                  'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-                  'security'
-                ],
-              }}
-              userInfo={{
-                displayName: 'Teacher' // Default name to skip name prompt
-              }}
-              onApiReady={(externalApi) => {
-                // You can add event listeners here if needed
-              }}
-              getIFrameRef={(iframeRef) => {
-                iframeRef.style.height = '100%';
-                iframeRef.style.width = '100%';
-              }}
-            />
-          </div>
-        </div>
-      )}
+
     </div>
   )
 
@@ -590,50 +552,8 @@ const ELearning = () => {
         </div>
       </div>
 
-      {/* Tab Navigation */}
+      {/* Tab Content */}
       <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <div className="flex flex-wrap gap-3 mb-6">
-          <button
-            onClick={() => setActiveTab('live')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'live'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            <FaVideo className="inline mr-2" />
-            Live Classes
-          </button>
-          <button
-            onClick={() => setActiveTab('videos')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'videos'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            <FaPlay className="inline mr-2" />
-            Video Classes
-          </button>
-          <button
-            onClick={() => setActiveTab('quizzes')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'quizzes'
-              ? 'bg-green-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            <FaQuestionCircle className="inline mr-2" />
-            Quizzes
-          </button>
-          <button
-            onClick={() => setActiveTab('resources')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${activeTab === 'resources'
-              ? 'bg-purple-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-          >
-            <FaBook className="inline mr-2" />
-            Resources
-          </button>
-        </div>
 
         {/* Tab Content */}
         {activeTab === 'live' && renderLiveClasses()}

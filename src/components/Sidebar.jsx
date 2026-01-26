@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Swal from 'sweetalert2'
@@ -13,7 +14,11 @@ import {
   FaUserCircle,
   FaExclamationTriangle,
   FaChartLine,
-  FaPlay
+  FaPlay,
+  FaChevronDown,
+  FaChevronUp,
+  FaVideo,
+  FaQuestionCircle
 } from 'react-icons/fa'
 
 const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
@@ -50,8 +55,27 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
     { id: 'notices', label: 'Notice Update', icon: FaBell },
     { id: 'alerts', label: 'Parent Alerts', icon: FaExclamationTriangle },
     { id: 'reports', label: 'Reports', icon: FaChartLine },
-    { id: 'elearning', label: 'E-Learning', icon: FaPlay }
+    {
+      id: 'elearning',
+      label: 'E-Learning',
+      icon: FaPlay,
+      subItems: [
+        { id: 'elearning-live', label: 'Live Classes', icon: FaVideo },
+        { id: 'elearning-videos', label: 'Video Classes', icon: FaPlay },
+        { id: 'elearning-quizzes', label: 'Quizzes', icon: FaQuestionCircle },
+        { id: 'elearning-resources', label: 'Resources', icon: FaBook },
+      ]
+    }
   ]
+
+  const [expandedMenus, setExpandedMenus] = useState({})
+
+  const toggleMenu = (id) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }))
+  }
 
   return (
     <div
@@ -79,23 +103,67 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
         <nav className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon
+            const hasSubItems = item.subItems && item.subItems.length > 0
+            const isExpanded = expandedMenus[item.id]
+            const isActive = activeTab === item.id || (item.subItems && item.subItems.some(sub => sub.id === activeTab))
+
             return (
-              <button
-                key={item.id}
-                onClick={() => { setActiveTab(item.id); const path = item.id === 'dashboard' ? '/dashboard' : `/dashboard/${item.id}`; navigate(path); }}
-                className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition group cursor-pointer ${activeTab === item.id
+              <div key={item.id} className="space-y-1">
+                <button
+                  onClick={() => {
+                    if (hasSubItems) {
+                      toggleMenu(item.id)
+                    } else {
+                      setActiveTab(item.id)
+                      const path = item.id === 'dashboard' ? '/dashboard' : `/dashboard/${item.id}`
+                      navigate(path)
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition group cursor-pointer ${isActive && !hasSubItems
                     ? 'bg-indigo-600 text-white'
                     : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                  }`}
-                title={!sidebarExpanded ? item.label : ''}
-              >
-                <IconComponent className="text-lg flex-shrink-0" />
-                {sidebarExpanded && (
-                  <span className="font-medium whitespace-nowrap overflow-hidden">
-                    {item.label}
-                  </span>
+                    }`}
+                  title={!sidebarExpanded ? item.label : ''}
+                >
+                  <div className="flex items-center space-x-3">
+                    <IconComponent className="text-lg flex-shrink-0" />
+                    {sidebarExpanded && (
+                      <span className="font-medium whitespace-nowrap overflow-hidden">
+                        {item.label}
+                      </span>
+                    )}
+                  </div>
+                  {sidebarExpanded && hasSubItems && (
+                    isExpanded ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />
+                  )}
+                </button>
+
+                {sidebarExpanded && hasSubItems && isExpanded && (
+                  <div className="ml-6 space-y-1">
+                    {item.subItems.map((subItem) => {
+                      const SubIcon = subItem.icon
+                      return (
+                        <button
+                          key={subItem.id}
+                          onClick={() => {
+                            setActiveTab(subItem.id)
+                            navigate(`/dashboard/${subItem.id}`)
+                          }}
+                          className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition group cursor-pointer text-sm ${activeTab === subItem.id
+                            ? 'bg-indigo-600 text-white'
+                            : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                            }`}
+                        >
+                          <SubIcon className="text-base flex-shrink-0" />
+                          <span className="font-medium whitespace-nowrap overflow-hidden">
+                            {subItem.label}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 )}
-              </button>
+              </div>
             )
           })}
         </nav>

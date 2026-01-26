@@ -60,7 +60,12 @@ const Dashboard = () => {
       case 'reports':
         return <Reports />
       case 'elearning':
-        return <ELearning />
+      case 'elearning-live':
+      case 'elearning-videos':
+      case 'elearning-quizzes':
+      case 'elearning-resources':
+        const subTab = activeTab.includes('-') ? activeTab.split('-')[1] : 'live'
+        return <ELearning subTab={subTab} />
       default:
         return <DashboardContent setActiveTab={handleTabChange} />
     }
