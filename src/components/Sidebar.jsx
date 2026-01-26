@@ -1,13 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import Swal from 'sweetalert2'
-import { 
-  FaTachometerAlt, 
-  FaChalkboardTeacher, 
-  FaClock, 
-  FaTasks, 
-  FaUserCheck, 
-  FaBook, 
+import {
+  FaTachometerAlt,
+  FaChalkboardTeacher,
+  FaClock,
+  FaTasks,
+  FaUserCheck,
+  FaBook,
   FaBell,
   FaSignOutAlt,
   FaUserCircle,
@@ -18,7 +18,7 @@ import {
 
 const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
   const navigate = useNavigate()
-  
+
   const handleLogout = async () => {
     const result = await Swal.fire({
       title: 'Are you sure?',
@@ -54,10 +54,9 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
   ]
 
   return (
-    <div 
-      className={`bg-gray-900 text-white h-screen fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 overflow-y-auto scrollbar-hide ${
-        sidebarExpanded ? 'w-64' : 'w-16'
-      }`}
+    <div
+      className={`bg-gray-900 text-white h-screen fixed left-0 top-0 z-40 flex flex-col transition-all duration-300 overflow-y-auto scrollbar-hide ${sidebarExpanded ? 'w-64' : 'w-16'
+        }`}
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
       {/* Logo Section - Fixed */}
@@ -83,12 +82,11 @@ const Sidebar = ({ activeTab, setActiveTab, sidebarExpanded }) => {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition group cursor-pointer ${
-                  activeTab === item.id
+                onClick={() => { setActiveTab(item.id); const path = item.id === 'dashboard' ? '/dashboard' : `/dashboard/${item.id}`; navigate(path); }}
+                className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition group cursor-pointer ${activeTab === item.id
                     ? 'bg-indigo-600 text-white'
                     : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                }`}
+                  }`}
                 title={!sidebarExpanded ? item.label : ''}
               >
                 <IconComponent className="text-lg flex-shrink-0" />

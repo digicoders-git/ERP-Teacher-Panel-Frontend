@@ -45,7 +45,7 @@ function App() {
             element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} 
           />
           <Route 
-            path="/dashboard" 
+            path="/dashboard/*" 
             element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />} 
           />
           <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
@@ -57,3 +57,4 @@ function App() {
 }
 
 export default App
+

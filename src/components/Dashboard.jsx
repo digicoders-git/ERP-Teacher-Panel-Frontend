@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
 import DashboardContent from './DashboardContent'
@@ -13,14 +14,27 @@ import Reports from './Reports'
 import ELearning from './ELearning'
 
 const Dashboard = () => {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [sidebarExpanded, setSidebarExpanded] = useState(true)
   const [loading, setLoading] = useState(false)
+
+  // Sync tab with URL on mount / location change
+  useEffect(() => {
+    const pathPart = location.pathname.split('/')[2] // e.g., 'classes'
+    if (pathPart && pathPart !== '') {
+      setActiveTab(pathPart)
+    } else {
+      setActiveTab('dashboard')
+    }
+  }, [location])
 
   const handleTabChange = (newTab) => {
     setLoading(true)
     setTimeout(() => {
       setActiveTab(newTab)
+      navigate(`/dashboard/${newTab}`)
       setLoading(false)
     }, 500)
   }
@@ -55,16 +69,15 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar sidebarExpanded={sidebarExpanded} setSidebarExpanded={setSidebarExpanded} />
-      <Sidebar 
-        activeTab={activeTab} 
+      <Sidebar
+        activeTab={activeTab}
         setActiveTab={handleTabChange}
         sidebarExpanded={sidebarExpanded}
       />
-      
+
       {/* Main Content */}
-      <div className={`pt-16 p-6 transition-all duration-300 ${
-        sidebarExpanded ? 'ml-64' : 'ml-16'
-      }`}>
+      <div className={`pt-16 p-6 transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'
+        }`}>
         {loading ? (
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
