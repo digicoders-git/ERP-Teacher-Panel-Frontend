@@ -135,4 +135,7 @@ export const getTeacherSalaries = (month, status) =>
 export const getSalaryById = (id) => api.get(`/salary/${id}`);
 export const getSalaryReport = () => api.get('/salary/report');
 
+// Unified Staff Attendance (Cross-panel)
+export const getStaffAttendanceHistory = () => api.get('../staff-panel/attendance-staff/my-history');
+
 export default api;

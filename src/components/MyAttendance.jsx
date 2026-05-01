@@ -1,313 +1,137 @@
 import React, { useState, useEffect } from 'react';
-import { FaCalendar, FaSearch, FaChevronLeft, FaChevronRight, FaSpinner } from 'react-icons/fa';
-import { MdCheckCircle, MdCancel } from 'react-icons/md';
+import { FaCalendarAlt, FaSearch, FaSpinner } from 'react-icons/fa';
+import { getStaffAttendanceHistory } from '../api';
 import { toast } from 'react-toastify';
-import { getTeacherAttendance } from '../api';
 
 const MyAttendance = () => {
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState(() => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 1);
-    return date.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  
-  const itemsPerPage = 10;
+    const [attendance, setAttendance] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeMode, setActiveMode] = useState('manual');
 
-  useEffect(() => {
-    fetchAttendance();
-  }, []);
+    useEffect(() => {
+        fetchAttendance();
+        fetchActiveMode();
+    }, []);
 
-  const fetchAttendance = async () => {
-    try {
-      setLoading(true);
-      const response = await getTeacherAttendance(startDate, endDate);
-      console.log('Teacher attendance response:', response.data);
-      
-      if (response.data.success) {
-        const records = response.data.data || [];
-        // Format the records
-        const formattedRecords = records.map((record, index) => ({
-          id: index + 1,
-          date: new Date(record.date).toLocaleDateString('en-IN'),
-          status: record.status?.charAt(0).toUpperCase() + record.status?.slice(1) || 'Not Marked',
-          checkIn: record.checkIn || '-',
-          checkOut: record.checkOut || '-',
-          workingHours: record.workingHours || 0,
-          remark: record.remark || ''
-        }));
-        setAttendanceRecords(formattedRecords);
-      } else {
-        toast.error(response.data.message || 'Failed to fetch attendance');
-        setAttendanceRecords([]);
-      }
-    } catch (error) {
-      console.error('Error fetching attendance:', error);
-      toast.error('Failed to fetch attendance: ' + (error.response?.data?.message || error.message));
-      setAttendanceRecords([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchActiveMode = async () => {
+        try {
+            const { data } = await api.get('../staff-panel/attendance-config/settings');
+            if (data.success) {
+                setActiveMode(data.data.staffMode || 'manual');
+            }
+        } catch (error) {
+            console.error('Failed to fetch mode', error);
+        }
+    };
 
-  const handleDateFilter = () => {
-    fetchAttendance();
-  };
+    const fetchAttendance = async () => {
+        try {
+            setLoading(true);
+            const { data } = await getStaffAttendanceHistory();
+            if (data.success) {
+                setAttendance(data.data || []);
+            }
+        } catch (error) {
+            toast.error('Failed to load attendance history');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const filteredRecords = attendanceRecords.filter(r =>
-    (r.date.includes(searchTerm)) &&
-    (filterStatus === 'all' || r.status === filterStatus)
-  );
+    const getStatusColor = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'present': return 'bg-green-100 text-green-700';
+            case 'absent': return 'bg-red-100 text-red-700';
+            case 'late': return 'bg-yellow-100 text-yellow-700';
+            default: return 'bg-gray-100 text-gray-700';
+        }
+    };
 
-  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
-  const paginatedData = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Present': return 'bg-green-100 text-green-700';
-      case 'Absent': return 'bg-red-100 text-red-700';
-      case 'Late': return 'bg-yellow-100 text-yellow-700';
-      case 'Leave': return 'bg-blue-100 text-blue-700';
-      case 'Half-day': return 'bg-purple-100 text-purple-700';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Present': return <MdCheckCircle className="text-green-600" />;
-      case 'Absent': return <MdCancel className="text-red-600" />;
-      default: return <FaCalendar className="text-slate-600" />;
-    }
-  };
-
-  const stats = {
-    totalRecords: attendanceRecords.length,
-    presentCount: attendanceRecords.filter(r => r.status === 'Present').length,
-    absentCount: attendanceRecords.filter(r => r.status === 'Absent').length,
-    lateCount: attendanceRecords.filter(r => r.status === 'Late').length,
-    avgWorkingHours: attendanceRecords.length > 0 
-      ? (attendanceRecords.reduce((sum, r) => sum + (r.workingHours || 0), 0) / attendanceRecords.length).toFixed(1)
-      : 0
-  };
-
-  const attendancePercentage = attendanceRecords.length > 0
-    ? ((stats.presentCount / attendanceRecords.length) * 100).toFixed(1)
-    : 0;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <FaSpinner className="animate-spin text-4xl text-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading your attendance...</p>
-        </div>
-      </div>
+    const filtered = attendance.filter(a => 
+        new Date(a.date).toLocaleDateString('en-IN').includes(searchTerm)
     );
-  }
 
-  return (
-    <div className="space-y-6 pb-8 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-black text-slate-800 tracking-tight">📅 My Attendance</h1>
-        <p className="text-sm text-slate-500 mt-1">View your attendance records and working hours</p>
-      </div>
+    if (loading) return (
+        <div className="flex justify-center py-20">
+            <FaSpinner className="animate-spin text-3xl text-blue-600" />
+        </div>
+    );
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-4">
-          <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Total Days</p>
-          <p className="text-2xl font-black text-blue-900">{stats.totalRecords}</p>
-          <p className="text-xs text-blue-600 mt-1">Recorded</p>
-        </div>
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200 p-4">
-          <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-1">Present</p>
-          <p className="text-2xl font-black text-green-900">{stats.presentCount}</p>
-          <p className="text-xs text-green-600 mt-1">Days</p>
-        </div>
-        <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-2xl border border-red-200 p-4">
-          <p className="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">Absent</p>
-          <p className="text-2xl font-black text-red-900">{stats.absentCount}</p>
-          <p className="text-xs text-red-600 mt-1">Days</p>
-        </div>
-        <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-2xl border border-yellow-200 p-4">
-          <p className="text-xs font-bold text-yellow-700 uppercase tracking-wide mb-1">Late</p>
-          <p className="text-2xl font-black text-yellow-900">{stats.lateCount}</p>
-          <p className="text-xs text-yellow-600 mt-1">Days</p>
-        </div>
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl border border-purple-200 p-4">
-          <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">Attendance %</p>
-          <p className="text-2xl font-black text-purple-900">{attendancePercentage}%</p>
-          <p className="text-xs text-purple-600 mt-1">Overall</p>
-        </div>
-      </div>
-
-      {/* Date Filter */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-        <div className="flex flex-col md:flex-row gap-3 items-end">
-          <div className="flex-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <button
-            onClick={handleDateFilter}
-            className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
-          >
-            Filter
-          </button>
-        </div>
-      </div>
-
-      {/* Search & Filter */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="flex-1 flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3">
-            <FaSearch className="text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by date..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="flex-1 bg-transparent outline-none text-slate-700 placeholder-slate-400"
-            />
-          </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => {
-              setFilterStatus(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="all">All Status</option>
-            <option value="Present">Present</option>
-            <option value="Absent">Absent</option>
-            <option value="Late">Late</option>
-            <option value="Leave">Leave</option>
-            <option value="Half-day">Half Day</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                <th className="px-6 py-4 text-left text-sm font-bold">Date</th>
-                <th className="px-6 py-4 text-left text-sm font-bold">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-bold">Check In</th>
-                <th className="px-6 py-4 text-left text-sm font-bold">Check Out</th>
-                <th className="px-6 py-4 text-center text-sm font-bold">Working Hours</th>
-                <th className="px-6 py-4 text-left text-sm font-bold">Remark</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedData.length > 0 ? (
-                paginatedData.map((record, idx) => (
-                  <tr key={record.id} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-900">{record.date}</td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(record.status)}`}>
-                        {getStatusIcon(record.status)}
-                        {record.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{record.checkIn || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{record.checkOut || '-'}</td>
-                    <td className="px-6 py-4 text-center text-sm font-bold text-slate-900">{record.workingHours || 0}h</td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{record.remark || '-'}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                    No attendance records found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
-            <div className="text-sm text-slate-600 font-medium">
-              Showing {filteredRecords.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRecords.length)} of {filteredRecords.length} items
+    return (
+        <div className="p-6 space-y-6">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <div className="flex items-center gap-3 mb-1">
+                        <h2 className="text-xl font-bold text-gray-800">My Attendance History</h2>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 border ${
+                            activeMode === 'manual' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                            activeMode === 'biometric' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                            activeMode === 'hybrid' ? 'bg-green-50 text-green-600 border-green-100' :
+                            'bg-orange-50 text-orange-600 border-orange-100'
+                        }`}>
+                            <div className={`w-1 h-1 rounded-full animate-pulse ${
+                                activeMode === 'manual' ? 'bg-blue-600' :
+                                activeMode === 'biometric' ? 'bg-purple-600' :
+                                activeMode === 'hybrid' ? 'bg-green-600' :
+                                'bg-orange-600'
+                            }`}></div>
+                            {activeMode}
+                        </span>
+                    </div>
+                    <p className="text-gray-500 text-sm">Detailed log of your presence and check-ins</p>
+                </div>
+                <div className="relative w-full md:w-64">
+                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                        placeholder="Search by date..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <FaChevronLeft className="text-xs" /> Previous
-              </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`w-10 h-10 rounded-lg font-bold transition-all ${
-                        currentPage === pageNum
-                          ? 'bg-blue-600 text-white shadow-lg scale-110'
-                          : 'border-2 border-slate-300 text-slate-700 hover:bg-slate-100 hover:scale-105'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                Next <FaChevronRight className="text-xs" />
-              </button>
+
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="bg-gray-50 border-b">
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Date</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Status</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">In Time</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Out Time</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Mode</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {filtered.length > 0 ? filtered.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-6 py-4 font-semibold text-gray-700">
+                                    {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(item.status)}`}>
+                                        {item.status}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-600">{item.timeIn ? new Date(item.timeIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                <td className="px-6 py-4 text-sm text-gray-600">{item.timeOut ? new Date(item.timeOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                                <td className="px-6 py-4">
+                                    <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px] font-bold uppercase tracking-wider">
+                                        {item.source || 'Manual'}
+                                    </span>
+                                </td>
+                            </tr>
+                        )) : (
+                            <tr>
+                                <td colSpan="5" className="px-6 py-12 text-center text-gray-400 italic">No records found for the selected period.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
 
 export default MyAttendance;

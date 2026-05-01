@@ -195,7 +195,9 @@ const DashboardContent = ({ setActiveTab }) => {
                     <p className="font-medium text-gray-800">
                       {typeof cls.class === 'object' ? (cls.class?.className || cls.class?.name || '') : cls.class} {cls.section}
                     </p>
-                    <p className="text-sm text-gray-600">{cls.subject} • {cls.room}</p>
+                    <p className="text-sm text-gray-600">
+                      {cls.subject} {cls.room && cls.room !== 'N/A' ? `• ${cls.room}` : ''}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-blue-600">{cls.time}</p>

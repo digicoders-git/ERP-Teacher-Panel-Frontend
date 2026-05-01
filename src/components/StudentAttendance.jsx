@@ -11,9 +11,17 @@ import {
   FaClock,
   FaEdit,
   FaSave,
-  FaSpinner
+  FaSpinner,
+  FaChalkboardTeacher,
+  FaFingerprint,
+  FaMobileAlt,
+  FaRobot,
+  FaSync,
+  FaUserEdit,
+  FaFileExcel
 } from 'react-icons/fa'
 import { getDashboardStats, markAttendance, getStudentsForAttendance, getAttendanceByClass } from '../api'
+import api from '../api'
 
 const StudentAttendance = () => {
   const [assignedClass, setAssignedClass] = useState(null)
@@ -21,12 +29,26 @@ const StudentAttendance = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editMode, setEditMode] = useState(false)
+  const [isAuthorized, setIsAuthorized] = useState(false)
+  const [isClassTeacher, setIsClassTeacher] = useState(false)
+  const [isSubstitute, setIsSubstitute] = useState(false)
   const [attendanceData, setAttendanceData] = useState({})
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [modifiedStudents, setModifiedStudents] = useState(new Set())
+  const [sysSettings, setSysSettings] = useState(null)
   const studentListRef = useRef(null)
+  const pollingRef = useRef(null)
+
+  const [classesList, setClassesList] = useState([])
 
   useEffect(() => {
     fetchData()
+    fetchSystemSettings()
+    
+    // Start real-time polling every 5 seconds
+    startPolling()
+    
+    return () => stopPolling()
   }, [])
 
   useEffect(() => {
@@ -35,152 +57,153 @@ const StudentAttendance = () => {
     }
   }, [assignedClass, selectedDate])
 
+  const startPolling = () => {
+    if (pollingRef.current || !assignedClass) return
+    pollingRef.current = setInterval(() => {
+        if (assignedClass && !editMode) {
+            silentUpdate()
+        }
+    }, 5000)
+  }
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+    }
+  }
+
+  const fetchSystemSettings = async () => {
+    try {
+        const { data } = await api.get('/dashboard/attendance-settings')
+        if (data.success) {
+            setSysSettings(data.data)
+        }
+    } catch (e) {
+        console.error('Settings fetch error', e)
+    }
+  }
+
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await getDashboardStats()
-      console.log('Dashboard response:', response.data)
+      const { getTeacherClasses } = await import('../api');
+      const response = await getTeacherClasses()
       
-      if (response.data.success && response.data.data.teacher.assignedClass) {
-        const classData = response.data.data.teacher.assignedClass
-        console.log('Assigned class:', classData)
-        setAssignedClass(classData)
+      if (response.data.success && response.data.data && response.data.data.length > 0) {
+        const classes = response.data.data;
+        setClassesList(classes)
+        
+        const defaultClass = classes.find(c => c.isAssigned || c.isSubstitute) || classes[0];
+        
+        setAssignedClass({
+          id: defaultClass.classId,
+          sectionId: defaultClass.sectionId,
+          name: defaultClass.class,
+          code: defaultClass.code || '',
+          stream: defaultClass.stream,
+          isAssigned: defaultClass.isAssigned,
+          isSubstitute: defaultClass.isSubstitute
+        })
       } else {
-        setError('No assigned class found')
-        toast.error('No assigned class found')
+        setError('No classes found for this teacher')
       }
     } catch (error) {
-      console.error('Error fetching dashboard:', error)
       setError(error.message)
-      toast.error('Failed to load class information')
+      toast.error('Failed to load classes')
     } finally {
       setLoading(false)
     }
   }
 
+  const silentUpdate = async () => {
+    try {
+        const response = await getAttendanceByClass(assignedClass.id, assignedClass.sectionId, selectedDate)
+        if (response.data.success) {
+            const records = response.data.data || []
+            const attMap = {}
+            records.forEach(r => { attMap[r.studentId] = r.status })
+            
+            setStudents(prev => prev.map(s => {
+                const r = records.find(rec => String(rec.studentId) === String(s.studentId))
+                return { ...s, markedBy: r?.markedBy || s.markedBy, source: r?.source || s.source }
+            }))
+            
+            // Only update attendanceData if we're NOT in edit mode
+            if (!editMode) {
+                setAttendanceData(prev => ({ ...prev, ...attMap }))
+            }
+        }
+    } catch (e) { /* silent fail */ }
+  }
+
   const fetchStudentsAndAttendance = async () => {
     try {
       setLoading(true)
-      
-      console.log('Fetching students for class:', assignedClass.id, 'section:', assignedClass.sectionId)
-      
-      // First fetch all students for the class
-      const studentsResponse = await getStudentsForAttendance(
-        assignedClass.id, 
-        assignedClass.sectionId
-      )
-      
-      console.log('Students response:', studentsResponse.data)
+      const studentsResponse = await getStudentsForAttendance(assignedClass.id, assignedClass.sectionId)
       
       if (studentsResponse.data.success) {
         const allStudents = studentsResponse.data.data || []
-        console.log('All students:', allStudents)
-        
-        // Then fetch attendance for the selected date
-        const attendanceResponse = await getAttendanceByClass(
-          assignedClass.id, 
-          assignedClass.sectionId, 
-          selectedDate
-        )
-        
-        console.log('Attendance response:', attendanceResponse.data)
+        const attendanceResponse = await getAttendanceByClass(assignedClass.id, assignedClass.sectionId, selectedDate)
         
         if (attendanceResponse.data.success) {
-          const attendanceRecords = attendanceResponse.data.data || []
-          
-          // Create attendance map
-          const attMap = {}
-          attendanceRecords.forEach(record => {
-            attMap[record.studentId] = record.status
-          })
-          
-          // Initialize attendance data
+          const records = attendanceResponse.data.data || []
           const initData = {}
           allStudents.forEach(student => {
-            initData[student.studentId] = attMap[student.studentId] || 'present'
+            const r = records.find(rec => String(rec.studentId) === String(student.studentId))
+            initData[student.studentId] = r?.status || 'not_marked'
           })
           
-          setStudents(allStudents)
+          setStudents(allStudents.map(s => {
+            const r = records.find(rec => String(rec.studentId) === String(s.studentId))
+            return { ...s, markedBy: r?.markedBy, source: r?.source }
+          }))
           setAttendanceData(initData)
-        } else {
-          setStudents(allStudents)
-          const initData = {}
-          allStudents.forEach(student => {
-            initData[student.studentId] = 'present'
-          })
-          setAttendanceData(initData)
+          setIsAuthorized(attendanceResponse.data.isAuthorized)
+          setIsClassTeacher(attendanceResponse.data.isClassTeacher)
+          setIsSubstitute(attendanceResponse.data.isSubstitute)
         }
-      } else {
-        setStudents([])
-        setAttendanceData({})
-        toast.error(studentsResponse.data.message || 'Failed to load students')
       }
     } catch (error) {
-      console.error('Error fetching students and attendance:', error)
-      console.error('Error response:', error.response?.data)
-      toast.error('Failed to load students: ' + (error.response?.data?.message || error.message))
-      setStudents([])
-      setAttendanceData({})
+      toast.error('Failed to load attendance data')
     } finally {
       setLoading(false)
     }
   }
 
   const handleStatusChange = (studentId, newStatus) => {
-    setAttendanceData({
-      ...attendanceData,
-      [studentId]: newStatus
-    })
+    setAttendanceData({ ...attendanceData, [studentId]: newStatus })
+    setModifiedStudents(prev => new Set(prev).add(studentId))
   }
 
   const handleSaveAttendance = async () => {
     try {
-      if (!assignedClass) {
-        toast.error('No assigned class found')
+      if (modifiedStudents.size === 0) {
+        setEditMode(false)
         return
       }
 
-      const attendanceRecords = students.map(student => ({
-        studentId: student.studentId,
-        status: attendanceData[student.studentId] || 'present'
+      const records = Array.from(modifiedStudents).map(id => ({
+        studentId: id,
+        status: attendanceData[id]
       }))
 
       const response = await markAttendance({
         date: selectedDate,
         classId: assignedClass.id,
         sectionId: assignedClass.sectionId,
-        attendanceData: attendanceRecords
+        attendanceData: records
       })
 
       if (response.data.success) {
         setEditMode(false)
+        setModifiedStudents(new Set())
         toast.success('✅ Attendance saved successfully!')
         fetchStudentsAndAttendance()
-      } else {
-        toast.error(response.data.message || 'Failed to save attendance')
       }
     } catch (error) {
-      console.error('Error saving attendance:', error)
-      toast.error('Failed to save attendance: ' + error.message)
+      toast.error(error.response?.data?.message || 'Failed to save')
     }
-  }
-
-  const handleMarkAllPresent = () => {
-    const newData = {}
-    students.forEach(student => {
-      newData[student.studentId] = 'present'
-    })
-    setAttendanceData(newData)
-    toast.success('All students marked as present!')
-  }
-
-  const handleMarkAllAbsent = () => {
-    const newData = {}
-    students.forEach(student => {
-      newData[student.studentId] = 'absent'
-    })
-    setAttendanceData(newData)
-    toast.success('All students marked as absent!')
   }
 
   const getStatusColor = (status) => {
@@ -188,309 +211,141 @@ const StudentAttendance = () => {
       case 'present': return 'bg-green-100 text-green-800'
       case 'absent': return 'bg-red-100 text-red-800'
       case 'late': return 'bg-yellow-100 text-yellow-800'
-      case 'half-day': return 'bg-blue-100 text-blue-800'
-      case 'leave': return 'bg-purple-100 text-purple-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const getStatusLabel = (status) => {
-    const labels = {
-      'present': 'Present',
-      'absent': 'Absent',
-      'late': 'Late',
-      'half-day': 'Half Day',
-      'leave': 'Leave'
-    }
-    return labels[status?.toLowerCase()] || 'Not Marked'
+  const getSourceIcon = (source) => {
+    if (source === 'biometric') return <FaFingerprint className="text-purple-500" title="Source: Biometric" />
+    if (source === 'app') return <FaMobileAlt className="text-blue-500" title="Source: Mobile App" />
+    if (source === 'excel') return <FaFileExcel className="text-green-600" title="Source: Excel Upload" />
+    return <FaUserEdit className="text-gray-400" title="Source: Manual" />
   }
 
-  const totalStudents = students.length
-  const presentStudents = Object.values(attendanceData).filter(s => s?.toLowerCase() === 'present').length
-  const absentStudents = Object.values(attendanceData).filter(s => s?.toLowerCase() === 'absent').length
-  const lateStudents = Object.values(attendanceData).filter(s => s?.toLowerCase() === 'late').length
-  const attendanceRate = totalStudents > 0 ? Math.round((presentStudents / totalStudents) * 100) : 0
-
-  if (loading && !assignedClass) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <FaSpinner className="animate-spin text-4xl text-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading attendance...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error && !assignedClass) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Error: {error}</p>
-          <button
-            onClick={fetchData}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    )
+  const canMarkManually = () => {
+    if (!sysSettings) return true // default allow
+    if (sysSettings.studentMode === 'manual' || sysSettings.studentMode === 'hybrid') return true
+    if (sysSettings.studentMode === 'biometric' && sysSettings.allowTeacherOverride) return true
+    return false
   }
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-indigo-500 to-indigo-700 text-white p-8 rounded-lg shadow-lg">
-        <div className="flex items-center justify-between">
+      {/* Header with Mode Status */}
+      <div className={`bg-gradient-to-r ${canMarkManually() ? 'from-indigo-500 to-indigo-700' : 'from-gray-600 to-gray-800'} text-white p-8 rounded-2xl shadow-lg relative overflow-hidden`}>
+        <div className="flex items-center justify-between relative z-10">
           <div>
-            <h1 className="text-3xl font-bold mb-2">📋 Student Attendance</h1>
-            <p className="text-indigo-100">Track and manage student attendance for your class</p>
+            <div className="flex items-center gap-2 mb-2">
+                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-white/30 backdrop-blur-sm">
+                    {(sysSettings && sysSettings.studentMode) ? sysSettings.studentMode : 'Manual'} Mode Active
+                </span>
+                {sysSettings?.deviceMode === 'test' && (
+                    <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold uppercase border border-yellow-500">Simulation</span>
+                )}
+            </div>
+            <h1 className="text-3xl font-bold">📋 Attendance Dashboard</h1>
+            <p className="text-indigo-100 opacity-80 italic">Real-time biometric & manual sync enabled</p>
           </div>
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => {
-                setEditMode(!editMode)
-                if (!editMode && studentListRef.current) {
-                  setTimeout(() => {
-                    studentListRef.current.scrollIntoView({ 
-                      behavior: 'smooth', 
-                      block: 'start' 
-                    })
-                  }, 100)
-                }
-              }}
-              className="bg-white text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition flex items-center space-x-2 cursor-pointer shadow-md"
-            >
-              <FaEdit />
-              <span>{editMode ? 'View Mode' : 'Mark Attendance'}</span>
-            </button>
+          <div className="flex gap-3">
+            {isAuthorized && canMarkManually() && (
+              <button 
+                onClick={() => setEditMode(!editMode)}
+                className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-bold hover:bg-white/90 transition shadow-xl active:scale-95"
+              >
+                {editMode ? 'Cancel Edit' : 'Edit Attendance'}
+              </button>
+            )}
             {editMode && (
               <button 
                 onClick={handleSaveAttendance}
-                className="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition flex items-center space-x-2 cursor-pointer shadow-md"
+                className="bg-green-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-600 transition shadow-xl active:scale-95 flex items-center gap-2"
               >
-                <FaSave />
-                <span>Save</span>
+                <FaSave /> Save Changes
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Class, Section, Stream and Date Selection */}
+      {/* Selective Filters */}
       {assignedClass && (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Class</label>
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <p className="text-lg font-semibold text-blue-900">{assignedClass.name}</p>
-              </div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Selected Class</label>
+              <select
+                value={`${assignedClass.id}-${assignedClass.sectionId}`}
+                onChange={(e) => {
+                  const s = classesList.find(c => `${c.classId}-${c.sectionId}` === e.target.value)
+                  if (s) setAssignedClass({ ...assignedClass, id: s.classId, sectionId: s.sectionId, name: s.class, code: s.code, stream: s.stream })
+                }}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-semibold"
+              >
+                {classesList.map(c => <option key={`${c.classId}-${c.sectionId}`} value={`${c.classId}-${c.sectionId}`}>{c.name}</option>)}
+              </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Stream</label>
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                <p className="text-lg font-semibold text-purple-900">
-                  {assignedClass.stream && assignedClass.stream.length > 0 
-                    ? assignedClass.stream.join(', ') 
-                    : 'N/A'}
-                </p>
-              </div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Class Code</label>
+              <div className="bg-indigo-50 px-4 py-3 rounded-xl border border-indigo-100 font-bold text-indigo-700">{assignedClass.code || 'N/A'}</div>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Code</label>
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <p className="text-lg font-semibold text-green-900">{assignedClass.code || 'N/A'}</p>
-              </div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Attendance Date</label>
+              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl font-semibold" />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+            <div className="flex flex-col justify-end">
+                <div className="flex items-center gap-2 text-sm font-bold text-green-600 animate-pulse">
+                    <FaSync className="text-xs" />
+                    <span>Live Monitoring Active</span>
+                </div>
             </div>
-          </div>
         </div>
       )}
 
-      {/* Quick Actions */}
-      {editMode && (
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 flex space-x-2">
-          <button 
-            onClick={handleMarkAllPresent}
-            className="bg-green-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-600 transition"
-          >
-            Mark All Present
-          </button>
-          <button 
-            onClick={handleMarkAllAbsent}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-600 transition"
-          >
-            Mark All Absent
-          </button>
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-          <div className="flex items-center space-x-4">
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <FaUsers className="text-blue-600 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-600">Total</h3>
-              <p className="text-2xl font-bold text-blue-600">{totalStudents}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-          <div className="flex items-center space-x-4">
-            <div className="bg-green-100 p-3 rounded-lg">
-              <FaCheckCircle className="text-green-600 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-600">Present</h3>
-              <p className="text-2xl font-bold text-green-600">{presentStudents}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
-          <div className="flex items-center space-x-4">
-            <div className="bg-red-100 p-3 rounded-lg">
-              <FaTimesCircle className="text-red-600 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-600">Absent</h3>
-              <p className="text-2xl font-bold text-red-600">{absentStudents}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-yellow-500">
-          <div className="flex items-center space-x-4">
-            <div className="bg-yellow-100 p-3 rounded-lg">
-              <FaClock className="text-yellow-600 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-600">Late</h3>
-              <p className="text-2xl font-bold text-yellow-600">{lateStudents}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
-          <div className="flex items-center space-x-4">
-            <div className="bg-purple-100 p-3 rounded-lg">
-              <FaChartBar className="text-purple-600 text-xl" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-600">Rate</h3>
-              <p className="text-2xl font-bold text-purple-600">{attendanceRate}%</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Student List */}
-      <div ref={studentListRef} className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <h3 className="text-xl font-bold text-gray-800 mb-6">
-          📚 Attendance Record - {new Date(selectedDate).toLocaleDateString()}
-        </h3>
-        
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <FaSpinner className="animate-spin text-3xl text-indigo-600" />
-          </div>
-        ) : students.length === 0 ? (
-          <div className="text-center py-12">
-            <FaUsers className="mx-auto text-5xl text-gray-400 mb-4" />
-            <p className="text-gray-500 text-lg">No students found in this class</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white">
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">S.No</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Roll No</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Student Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Class</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold">Stream</th>
-                  <th className="px-6 py-4 text-center text-sm font-semibold">Status</th>
-                  {editMode && (
-                    <th className="px-6 py-4 text-center text-sm font-semibold">Actions</th>
-                  )}
+      {/* Student List Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+            <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">Student</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">Roll No</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest text-center">Source</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest text-center">Status</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest">Marked By</th>
+                    {editMode && <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-widest text-center">Actions</th>}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {students.map((student, index) => (
-                  <tr key={student.studentId} className="hover:bg-indigo-50 transition">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full text-sm font-semibold text-indigo-600">
-                        {index + 1}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">{student.rollNo || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">{student.name}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">{assignedClass?.name || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">
-                        {assignedClass?.stream && assignedClass.stream.length > 0 
-                          ? assignedClass.stream.join(', ') 
-                          : '-'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendanceData[student.studentId] || 'present')}`}>
-                        {getStatusLabel(attendanceData[student.studentId] || 'present')}
-                      </span>
-                    </td>
-                    {editMode && (
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="flex justify-center space-x-2">
-                          <button
-                            onClick={() => handleStatusChange(student.studentId, 'present')}
-                            className={`p-2 rounded transition ${attendanceData[student.studentId]?.toLowerCase() === 'present' ? 'bg-green-500 text-white' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}
-                            title="Mark as Present"
-                          >
-                            <FaCheckCircle className="text-sm" />
-                          </button>
-                          <button
-                            onClick={() => handleStatusChange(student.studentId, 'absent')}
-                            className={`p-2 rounded transition ${attendanceData[student.studentId]?.toLowerCase() === 'absent' ? 'bg-red-500 text-white' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
-                            title="Mark as Absent"
-                          >
-                            <FaTimesCircle className="text-sm" />
-                          </button>
-                          <button
-                            onClick={() => handleStatusChange(student.studentId, 'late')}
-                            className={`p-2 rounded transition ${attendanceData[student.studentId]?.toLowerCase() === 'late' ? 'bg-yellow-500 text-white' : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'}`}
-                            title="Mark as Late"
-                          >
-                            <FaClock className="text-sm" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+                {students.map(s => (
+                    <tr key={s.studentId} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                            <span className="block font-bold text-gray-900">{s.name}</span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{s.rollNo || '-'}</td>
+                        <td className="px-6 py-4 text-center">
+                            <div className="flex justify-center">{getSourceIcon(s.source)}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                            <div className="flex justify-center">
+                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${getStatusColor(attendanceData[s.studentId])}`}>
+                                    {attendanceData[s.studentId] || 'Not Marked'}
+                                </span>
+                            </div>
+                        </td>
+                        <td className="px-6 py-4">
+                            <span className="text-xs text-gray-500 font-medium italic">{s.markedBy || '-'}</span>
+                        </td>
+                        {editMode && (
+                            <td className="px-6 py-4">
+                                <div className="flex justify-center gap-2">
+                                    <button onClick={() => handleStatusChange(s.studentId, 'present')} className={`p-2 rounded-lg transition ${attendanceData[s.studentId] === 'present' ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-400 hover:bg-green-100'}`}><FaCheckCircle /></button>
+                                    <button onClick={() => handleStatusChange(s.studentId, 'absent')} className={`p-2 rounded-lg transition ${attendanceData[s.studentId] === 'absent' ? 'bg-red-500 text-white shadow-md' : 'bg-gray-100 text-gray-400 hover:bg-red-100'}`}><FaTimesCircle /></button>
+                                    <button onClick={() => handleStatusChange(s.studentId, 'late')} className={`p-2 rounded-lg transition ${attendanceData[s.studentId] === 'late' ? 'bg-yellow-500 text-white shadow-md' : 'bg-gray-100 text-gray-400 hover:bg-yellow-100'}`}><FaClock /></button>
+                                </div>
+                            </td>
+                        )}
+                    </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+            </tbody>
+        </table>
       </div>
     </div>
   )

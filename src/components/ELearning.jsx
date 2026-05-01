@@ -14,7 +14,17 @@ import {
 const getFileUrl = (path) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5002'}/${path.replace(/\\/g, '/')}`;
+  return `${import.meta.env.VITE_API_URL?.replace('/api/teacher-panel', '') || 'http://localhost:5002'}/${path.replace(/\\/g, '/')}`;
+};
+
+const getYoutubeThumbnail = (url) => {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2].length === 11) {
+    return `https://img.youtube.com/vi/${match[2]}/mqdefault.jpg`;
+  }
+  return null;
 };
 
 const ELearning = ({ subTab }) => {
@@ -122,32 +132,66 @@ const ELearning = ({ subTab }) => {
 
   const handleSave = async (e) => {
     e.preventDefault()
-    if (!selectedClass) {
-      toast.error('Please select a class first')
-      return
+    
+    // Basic Validation
+    if (!formData.title?.trim()) return toast.warning('Please enter a title');
+    if (!formData.subject?.trim()) return toast.warning('Please enter a subject');
+
+    const targetClassId = formData.classId || selectedClass?.classId;
+    const targetSectionId = formData.sectionId || selectedClass?.sectionId;
+
+    if (!targetClassId || !targetSectionId) {
+      return toast.warning('Please select a target class');
     }
     
-    setIsSubmitting(true)
     const { type, data } = showModal
+
+    // Type-specific Validation
+    if (type === 'video') {
+      if (!formData.videoSource || formData.videoSource === 'link') {
+        if (!formData.videoUrl?.trim()) return toast.warning('Please provide a video URL');
+      } else {
+        if (!data && !formData.videoFile) return toast.warning('Please upload a video file');
+      }
+    } else if (type === 'resource') {
+      if (!data && !formData.file) return toast.warning('Please select a file to upload');
+    } else if (type === 'live') {
+      if (!formData.meetingLink && !formData.meetLink) return toast.warning('Meeting link is required');
+      if (!formData.scheduledTime && !formData.date) return toast.warning('Scheduled time is required');
+    }
+
+    setIsSubmitting(true)
 
     try {
       const commonPayload = {
-        title: formData.title,
-        subject: formData.subject,
-        classId: selectedClass.classId,
-        sectionId: selectedClass.sectionId
+        title: formData.title.trim(),
+        subject: formData.subject.trim(),
+        classId: targetClassId,
+        sectionId: targetSectionId
       }
 
       let res;
       if (type === 'video') {
-        const videoPayload = {
-          ...commonPayload,
-          duration: formData.duration,
-          thumbnailUrl: formData.thumbnailUrl || formData.thumbnail, // Handle both for safety
-          videoUrl: formData.videoUrl
+        const videoFormData = new FormData()
+        videoFormData.append('title', formData.title)
+        videoFormData.append('subject', formData.subject)
+        videoFormData.append('duration', formData.duration || '')
+        videoFormData.append('classId', targetClassId)
+        videoFormData.append('sectionId', targetSectionId)
+        
+        if (formData.videoFile) {
+          videoFormData.append('videoFile', formData.videoFile)
+          if (formData.thumbnailFile) {
+            videoFormData.append('thumbnailFile', formData.thumbnailFile)
+          }
+        } else {
+          const ytThumb = getYoutubeThumbnail(formData.videoUrl)
+          videoFormData.append('videoUrl', formData.videoUrl || '')
+          videoFormData.append('thumbnailUrl', formData.thumbnailUrl || ytThumb || formData.thumbnail || '')
         }
-        if (data) res = await updateVideo(data._id, videoPayload)
-        else res = await apiUploadVideo(videoPayload)
+
+        if (data) res = await updateVideo(data._id, videoFormData)
+        else res = await apiUploadVideo(videoFormData)
       } else if (type === 'quiz') {
         const quizPayload = {
           ...commonPayload,
@@ -161,8 +205,8 @@ const ELearning = ({ subTab }) => {
         resourceFormData.append('title', formData.title)
         resourceFormData.append('subject', formData.subject)
         resourceFormData.append('fileType', formData.type || formData.fileType || 'PDF')
-        resourceFormData.append('classId', selectedClass.classId)
-        resourceFormData.append('sectionId', selectedClass.sectionId)
+        resourceFormData.append('classId', targetClassId)
+        resourceFormData.append('sectionId', targetSectionId)
         if (formData.file) resourceFormData.append('file', formData.file)
 
         if (data) res = await updateResource(data._id, resourceFormData)
@@ -183,7 +227,7 @@ const ELearning = ({ subTab }) => {
       handleCloseModal()
     } catch (error) {
       console.error('Save error:', error)
-      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Failed to save item'
+      const errorMsg = error.response?.data?.message || error.message || 'Operation failed';
       toast.error(errorMsg)
     } finally {
       setIsSubmitting(false)
@@ -262,9 +306,10 @@ const ELearning = ({ subTab }) => {
             <div key={video._id} className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition">
               <div className="relative">
                 <img 
-                  src={getFileUrl(video.thumbnailUrl || video.thumbnail) || 'https://via.placeholder.com/400x250?text=No+Thumbnail'} 
+                  src={getYoutubeThumbnail(video.videoUrl) || getFileUrl(video.thumbnailUrl || video.thumbnail) || 'https://via.placeholder.com/400x250?text=No+Thumbnail'} 
                   alt={video.title} 
                   className="w-full h-48 object-cover" 
+                  onError={(e) => { e.target.src = 'https://via.placeholder.com/400x250?text=Video+Lesson' }}
                 />
                 <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 hover:opacity-100 transition">
                   <button 
@@ -651,7 +696,7 @@ const ELearning = ({ subTab }) => {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
             >
-              {cls.className} - {cls.sectionName}
+              {cls.class || cls.className} - {cls.section || cls.sectionName}
             </button>
           ))}
         </div>
@@ -671,7 +716,7 @@ const ELearning = ({ subTab }) => {
 
       {/* Modal Overlay */}
       {showModal.type && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-md bg-black/40 p-4 transition-all duration-300">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className={`p-4 text-white font-bold flex justify-between items-center ${showModal.type === 'video' ? 'bg-blue-600' :
               showModal.type === 'quiz' ? 'bg-green-600' :
@@ -681,65 +726,144 @@ const ELearning = ({ subTab }) => {
               <button onClick={handleCloseModal} className="hover:text-gray-200 text-2xl">&times;</button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
                 <input
                   required
                   type="text"
                   value={formData.title || ''}
                   onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:ring-indigo-500"
-                  placeholder="Enter title"
+                  className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:outline-none transition-all"
+                  placeholder="Enter a descriptive title"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject / Category</label>
-                <input
-                  required
-                  type="text"
-                  value={formData.subject || ''}
-                  onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:ring-indigo-500"
-                  placeholder="e.g. Mathematics"
-                />
+              {/* Class & Subject Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Target Class</label>
+                  <select
+                    required
+                    value={formData.classId ? `${formData.classId}-${formData.sectionId}` : (selectedClass ? `${selectedClass.classId}-${selectedClass.sectionId}` : '')}
+                    onChange={e => {
+                      const [cId, sId] = e.target.value.split('-');
+                      setFormData({ ...formData, classId: cId, sectionId: sId });
+                    }}
+                    className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:outline-none transition-all bg-white text-gray-800"
+                  >
+                    {!formData.classId && !selectedClass && <option value="">Select a class</option>}
+                    {teacherClasses.map(cls => (
+                      <option key={`${cls.classId}-${cls.sectionId}`} value={`${cls.classId}-${cls.sectionId}`}>
+                        {cls.class || cls.className || 'Class'} - {cls.section || cls.sectionName || 'Section'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Subject</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.subject || ''}
+                    onChange={e => setFormData({ ...formData, subject: e.target.value })}
+                    className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:outline-none transition-all"
+                    placeholder="e.g. Mathematics"
+                  />
+                </div>
               </div>
                {showModal.type === 'video' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Video URL (YouTube/Vimeo)</label>
-                    <input
-                      required
-                      type="text"
-                      value={formData.videoUrl || ''}
-                      onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="https://..."
-                    />
+                <div className="space-y-4 pt-2 border-t border-gray-100">
+                  <div className="flex gap-4 p-1 bg-gray-50 rounded-xl border-2 border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, videoSource: 'link' })}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${!formData.videoSource || formData.videoSource === 'link' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
+                    >
+                      Video Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, videoSource: 'upload' })}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${formData.videoSource === 'upload' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-500'}`}
+                    >
+                      Upload File
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                    <input
-                      type="text"
-                      value={formData.duration || ''}
-                      onChange={e => setFormData({ ...formData, duration: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="e.g. 45 min"
-                    />
+
+                  {(!formData.videoSource || formData.videoSource === 'link') ? (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Video URL (YouTube/Vimeo)</label>
+                      <div className="relative">
+                        <FaVideo className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          required
+                          type="text"
+                          value={formData.videoUrl || ''}
+                          onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
+                          className="w-full pl-10 pr-4 py-2 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:outline-none transition-all"
+                          placeholder="https://youtube.com/..."
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Choose Video File</label>
+                      <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-indigo-400 transition-all">
+                        <input
+                          required={!showModal.data}
+                          type="file"
+                          accept="video/*"
+                          onChange={e => setFormData({ ...formData, videoFile: e.target.files[0] })}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <div className="space-y-1">
+                          <FaUpload className="mx-auto text-gray-400 text-2xl" />
+                          <p className="text-sm font-medium text-gray-600">
+                            {formData.videoFile ? formData.videoFile.name : 'Click to upload video'}
+                          </p>
+                          <p className="text-xs text-gray-400">Max size: 100MB (MP4, MOV, etc.)</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Duration</label>
+                      <input
+                        type="text"
+                        value={formData.duration || ''}
+                        onChange={e => setFormData({ ...formData, duration: e.target.value })}
+                        className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl"
+                        placeholder="e.g. 45 min"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Thumbnail</label>
+                      {formData.videoSource === 'upload' ? (
+                        <div className="relative">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={e => setFormData({ ...formData, thumbnailFile: e.target.files[0] })}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <button type="button" className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-left truncate text-gray-500 text-sm">
+                            {formData.thumbnailFile ? formData.thumbnailFile.name : 'Upload Image'}
+                          </button>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={formData.thumbnailUrl || ''}
+                          onChange={e => setFormData({ ...formData, thumbnailUrl: e.target.value })}
+                          className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl"
+                          placeholder="Image URL"
+                        />
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Thumbnail URL</label>
-                    <input
-                      required
-                      type="text"
-                      value={formData.thumbnailUrl || ''}
-                      onChange={e => setFormData({ ...formData, thumbnailUrl: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="https://images.unsplash.com/..."
-                    />
-                  </div>
-                </>
+                </div>
               )}
 
 
@@ -793,29 +917,47 @@ const ELearning = ({ subTab }) => {
               )}
 
               {showModal.type === 'live' && (
-                <>
+                <div className="space-y-4 pt-2 border-t border-gray-100">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link / Room Name</label>
-                    <input
-                      required
-                      type="text"
-                      value={formData.meetingLink || ''}
-                      onChange={e => setFormData({ ...formData, meetingLink: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="e.g. math-class-101"
-                    />
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Meeting Link / Room Name</label>
+                    <div className="relative">
+                      <FaVideo className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        required
+                        type="text"
+                        value={formData.meetingLink || formData.meetLink || ''}
+                        onChange={e => setFormData({ ...formData, meetingLink: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:outline-none transition-all"
+                        placeholder="e.g. math-class-zoom"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date & Time</label>
-                    <input
-                      required
-                      type="datetime-local"
-                      value={formData.scheduledTime || ''}
-                      onChange={e => setFormData({ ...formData, scheduledTime: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Date & Time</label>
+                      <input
+                        required
+                        type="datetime-local"
+                        value={formData.scheduledTime || formData.date || ''}
+                        onChange={e => setFormData({ ...formData, scheduledTime: e.target.value })}
+                        className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Duration</label>
+                      <select
+                        value={formData.duration || '45 min'}
+                        onChange={e => setFormData({ ...formData, duration: e.target.value })}
+                        className="w-full px-4 py-2 border-2 border-gray-100 rounded-xl bg-white"
+                      >
+                        <option value="30 min">30 Minutes</option>
+                        <option value="45 min">45 Minutes</option>
+                        <option value="60 min">60 Minutes</option>
+                        <option value="90 min">90 Minutes</option>
+                      </select>
+                    </div>
                   </div>
-                </>
+                </div>
               )}
 
               <div className="flex space-x-3 pt-4 border-t">
