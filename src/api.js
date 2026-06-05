@@ -10,12 +10,12 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('teacherToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  
+
   // If data is FormData, remove Content-Type header to let browser set it
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
   }
-  
+
   return config;
 });
 
@@ -23,12 +23,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
-      if (!isLoginPage) {
-        localStorage.removeItem('teacherToken');
-        localStorage.removeItem('teacherAuth');
-        window.location.href = '/login';
-      }
+      localStorage.removeItem('teacherToken');
+      localStorage.removeItem('teacherAuth');
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
@@ -37,7 +34,7 @@ api.interceptors.response.use(
 // Dashboard
 export const getDashboardStats = () => api.get('/dashboard/stats');
 export const getTeacherClasses = () => api.get('/dashboard/classes');
-export const getStudentsByClass = (classId, sectionId) => 
+export const getStudentsByClass = (classId, sectionId) =>
   api.get('/dashboard/students', { params: { classId, sectionId } });
 
 // Assignments
