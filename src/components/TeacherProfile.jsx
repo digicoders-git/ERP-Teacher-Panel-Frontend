@@ -7,7 +7,7 @@ const TeacherProfile = () => {
   const navigate = useNavigate()
   const [teacher, setTeacher] = useState(null)
   const [loading, setLoading] = useState(true)
-  const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api/teacher-panel'
+  const BASE_URL = import.meta.env.VITE_API_URL || 'https://erp-backend-0ab5.onrender.com/api/teacher-panel'
   const IMAGE_BASE_URL = BASE_URL.replace('/api/teacher-panel', '')
 
   useEffect(() => {

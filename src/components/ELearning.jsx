@@ -14,7 +14,7 @@ import {
 const getFileUrl = (path) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  return `${import.meta.env.VITE_API_URL?.replace('/api/teacher-panel', '') || 'http://localhost:5002'}/${path.replace(/\\/g, '/')}`;
+  return `${import.meta.env.VITE_API_URL?.replace('/api/teacher-panel', '') || 'https://erp-backend-0ab5.onrender.com'}/${path.replace(/\\/g, '/')}`;
 };
 
 const getYoutubeThumbnail = (url) => {
